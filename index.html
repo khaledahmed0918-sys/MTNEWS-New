@@ -97,12 +97,15 @@
       
       /* Leaflet Map Styles */
       .leaflet-container {
-        background: #1a1a1a;
+        background: #0fa8d2; /* Sea color matches the map */
         border-radius: 30px; /* matches glass-card */
       }
-      .leaflet-tile {
-        image-rendering: -webkit-optimize-contrast; /* Improves image quality on zoom */
+      /* High Quality Image Rendering */
+      .leaflet-image-layer, .leaflet-tile {
+        image-rendering: high-quality; 
+        image-rendering: -webkit-optimize-contrast;
       }
+      
       .highlighted-marker {
         filter: drop-shadow(0 0 10px #4ade80) drop-shadow(0 0 20px #4ade80) brightness(1.5);
         animation: pulse 1.5s infinite;

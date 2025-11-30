@@ -5,7 +5,7 @@ import { useTheme, useFavorites, useLocalStorage, useIntersectionObserver } from
 import { translations, navConfig, threadsData, imagesData, linksData, creditsData, Icons, mapObjectsData } from './constants';
 import type { Lang, Theme, Section, NavItem, Thread, ImageData, LinkData, CreditPerson, SocialLink, MapObjectItem, MapObjectLocation } from './types';
 import * as L from 'leaflet';
-import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents, Popup, ImageOverlay } from 'react-leaflet';
 
 // --- CONTEXT ---
 interface I18nContextType {
@@ -309,65 +309,10 @@ const ToggleSwitch: React.FC<{ isOn: boolean; onToggle: () => void; }> = ({ isOn
     );
 };
 
-const CustomTileLayer = () => {
-    const map = useMap();
-
-    useEffect(() => {
-        const CustomLayer = L.TileLayer.extend({
-            createTile: function(coords: L.Coords, done: L.DoneCallback) {
-                const tile = document.createElement('img');
-                tile.style.background = '#1a1a1a'; // Improved placeholder
-                const maxRetries = 4;
-                let currentAttempt = 0;
-
-                const tryLoad = (url: string, isParent = false) => {
-                    tile.src = url;
-
-                    tile.onload = () => {
-                        done(null, tile);
-                    };
-
-                    tile.onerror = () => {
-                        currentAttempt++;
-                        if (currentAttempt < maxRetries) {
-                            const delay = 200 * Math.pow(2, currentAttempt - 1);
-                            setTimeout(() => tryLoad(url, isParent), delay);
-                        } else if (!isParent && coords.z > 0) {
-                            // Parent Fallback
-                            const parentCoords = {
-                                x: Math.floor(coords.x / 2),
-                                y: Math.floor(coords.y / 2),
-                                z: coords.z - 1
-                            };
-                            currentAttempt = 0; // Reset attempts for parent
-                            tryLoad(this.getTileUrl(parentCoords), true);
-                        } else {
-                            // Placeholder
-                            tile.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-                            done(null, tile);
-                        }
-                    };
-                };
-
-                tryLoad(this.getTileUrl(coords));
-
-                return tile;
-            },
-            getTileUrl: function(coords: L.Coords) {
-                return `/tiles/${coords.z}/${coords.x}_${coords.y}.png`;
-            }
-        });
-
-        const customLayer = new (CustomLayer as any)();
-        customLayer.addTo(map);
-
-        return () => {
-            map.removeLayer(customLayer);
-        };
-    }, [map]);
-
-    return null;
-};
+// GTA V Map Bounds for the 8192x8192 image
+// Defined OUTSIDE the component to prevent re-creation on render
+const mapBounds: L.LatLngBoundsExpression = [[0, 0], [8192, 8192]];
+const mapUrl = 'https://www.bragitoff.com/wp-content/uploads/2015/11/GTAV_ATLUS_8192x8192.png';
 
 const GangsPage: React.FC = () => {
     const { t, lang } = useI18n();
@@ -407,20 +352,25 @@ const GangsPage: React.FC = () => {
     
     return (
         <div className="w-full max-w-7xl mx-auto p-4 h-[calc(100vh-250px)] min-h-[600px]">
-            <div className="relative w-full h-full rounded-glass shadow-lg">
+            <div className="relative w-full h-full rounded-glass shadow-lg bg-[#0fa8d2] overflow-hidden">
                 <MapContainer
                     ref={mapRef}
-                    center={[4096, 4096]}
-                    zoom={2}
-                    minZoom={0}
-                    maxZoom={5}
+                    bounds={mapBounds} // Automatically fits the map bounds on load
+                    minZoom={-10} // Allows zooming out until map is extremely small (8 pixels)
+                    maxZoom={4}  // Allows deep zooming for high detail
+                    scrollWheelZoom={true}
                     crs={L.CRS.Simple}
-                    className="w-full h-full"
-                    maxBounds={[[0, 0], [8192, 8192]]}
+                    className="w-full h-full z-0"
+                    maxBounds={null} // Allow free movement
                     zoomControl={false}
                     attributionControl={false}
                 >
-                    <CustomTileLayer />
+                    <ImageOverlay
+                        url={mapUrl}
+                        bounds={mapBounds}
+                        // zIndex is optional, but good for ordering if using tiles
+                    />
+                    
                     {mapObjectsData.map(item =>
                         activeObjectIds.includes(item.id) &&
                         item.locations.map((loc, index) => {
